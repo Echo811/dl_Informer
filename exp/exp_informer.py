@@ -29,6 +29,7 @@ class Exp_Informer(Exp_Basic):
         }
         if self.args.model=='informer' or self.args.model=='informerstack':
             e_layers = self.args.e_layers if self.args.model=='informer' else self.args.s_layers
+            # 将输入都转化为 float 类型
             model = model_dict[self.args.model](
                 self.args.enc_in,
                 self.args.dec_in, 
@@ -52,11 +53,13 @@ class Exp_Informer(Exp_Basic):
                 self.args.mix,
                 self.device
             ).float()
-        
+        # 如果使用多 GPU 训练
         if self.args.use_multi_gpu and self.args.use_gpu:
             model = nn.DataParallel(model, device_ids=self.args.device_ids)
         return model
-
+    '''
+            创建 datasets、dataloader
+    '''
     def _get_data(self, flag):
         args = self.args
 
@@ -78,7 +81,7 @@ class Exp_Informer(Exp_Basic):
         elif flag=='pred':
             shuffle_flag = False; drop_last = False; batch_size = 1; freq=args.detail_freq
             Data = Dataset_Pred
-        else:
+        else: # 训练
             shuffle_flag = True; drop_last = True; batch_size = args.batch_size; freq=args.freq
         data_set = Data(
             root_path=args.root_path,
@@ -101,15 +104,22 @@ class Exp_Informer(Exp_Basic):
             drop_last=drop_last)
 
         return data_set, data_loader
-
+    '''
+        优化器
+    '''
     def _select_optimizer(self):
         model_optim = optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
         return model_optim
-    
+    '''
+        损失函数
+    '''
     def _select_criterion(self):
         criterion =  nn.MSELoss()
         return criterion
-
+    '''
+        单元测试
+        （用于测试、验证的子过程）
+    '''
     def vali(self, vali_data, vali_loader, criterion):
         self.model.eval()
         total_loss = []
@@ -121,7 +131,9 @@ class Exp_Informer(Exp_Basic):
         total_loss = np.average(total_loss)
         self.model.train()
         return total_loss
-
+    '''
+        开始训练
+    '''
     def train(self, setting):
         train_data, train_loader = self._get_data(flag = 'train')
         vali_data, vali_loader = self._get_data(flag = 'val')
@@ -134,14 +146,22 @@ class Exp_Informer(Exp_Basic):
         time_now = time.time()
         
         train_steps = len(train_loader)
+
+        # patience: 这是提前停止训练的轮数阈值。如果模型在 patience 轮训练中的性能没有提升，则提前停止训练。
+        # verbose: 如果为 True，则会在每轮训练后输出有关模型性能的信息。
         early_stopping = EarlyStopping(patience=self.args.patience, verbose=True)
         
+        # 优化器、损失函数
         model_optim = self._select_optimizer()
         criterion =  self._select_criterion()
 
+        # PyTorch的自动混合精度训练（Automatic Mixed Precision, AMP）功能。在训练神经网络时，使用AMP可以大大提高训练速度并减少显存使用。
         if self.args.use_amp:
             scaler = torch.cuda.amp.GradScaler()
 
+        #------------
+        #  开始训练  |
+        #------------
         for epoch in range(self.args.train_epochs):
             iter_count = 0
             train_loss = []
@@ -152,8 +172,7 @@ class Exp_Informer(Exp_Basic):
                 iter_count += 1
                 
                 model_optim.zero_grad()
-                pred, true = self._process_one_batch(
-                    train_data, batch_x, batch_y, batch_x_mark, batch_y_mark)
+                pred, true = self._process_one_batch(train_data, batch_x, batch_y, batch_x_mark, batch_y_mark)
                 loss = criterion(pred, true)
                 train_loss.append(loss.item())
                 
@@ -191,7 +210,9 @@ class Exp_Informer(Exp_Basic):
         self.model.load_state_dict(torch.load(best_model_path))
         
         return self.model
-
+    '''
+        开始测试
+    '''
     def test(self, setting):
         test_data, test_loader = self._get_data(flag='test')
         
@@ -199,12 +220,13 @@ class Exp_Informer(Exp_Basic):
         
         preds = []
         trues = []
-        
-        for i, (batch_x,batch_y,batch_x_mark,batch_y_mark) in enumerate(test_loader):
-            pred, true = self._process_one_batch(
-                test_data, batch_x, batch_y, batch_x_mark, batch_y_mark)
-            preds.append(pred.detach().cpu().numpy())
-            trues.append(true.detach().cpu().numpy())
+
+        with torch.no_grad(): # 10/26 修改
+            for i, (batch_x,batch_y,batch_x_mark,batch_y_mark) in enumerate(test_loader):
+                pred, true = self._process_one_batch(
+                    test_data, batch_x, batch_y, batch_x_mark, batch_y_mark)
+                preds.append(pred.detach().cpu().numpy())
+                trues.append(true.detach().cpu().numpy())
 
         preds = np.array(preds)
         trues = np.array(trues)
@@ -226,12 +248,17 @@ class Exp_Informer(Exp_Basic):
         np.save(folder_path+'true.npy', trues)
 
         return
-
+    '''
+        开始预测
+    '''
     def predict(self, setting, load=False):
         pred_data, pred_loader = self._get_data(flag='pred')
         
+        # 加载模型的预训练权重
         if load:
+            # 构建模型检查点文件夹的路径
             path = os.path.join(self.args.checkpoints, setting)
+            # checkpoint.pth 文件包含了在训练过程中效果最好的权重
             best_model_path = path+'/'+'checkpoint.pth'
             self.model.load_state_dict(torch.load(best_model_path))
 
@@ -239,10 +266,12 @@ class Exp_Informer(Exp_Basic):
         
         preds = []
         
-        for i, (batch_x,batch_y,batch_x_mark,batch_y_mark) in enumerate(pred_loader):
-            pred, true = self._process_one_batch(
-                pred_data, batch_x, batch_y, batch_x_mark, batch_y_mark)
-            preds.append(pred.detach().cpu().numpy())
+        # 10/26 修改
+        with torch.no_grad():
+            for i, (batch_x,batch_y,batch_x_mark,batch_y_mark) in enumerate(pred_loader):
+                pred, true = self._process_one_batch(
+                    pred_data, batch_x, batch_y, batch_x_mark, batch_y_mark)
+                preds.append(pred.detach().cpu().numpy())
 
         preds = np.array(preds)
         preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
@@ -256,7 +285,14 @@ class Exp_Informer(Exp_Basic):
         
         return
 
+    '''
+        操纵一个 batch 的数据
+
+        batch_x_mark： 这可能包含了输入序列的一些辅助信息或标记，以帮助模型更好地理解输入序列。在Informer中，batch_x_mark是输入序列的附加标记信息。
+        batch_y_mark： 这可能包含了目标序列的一些辅助信息或标记。在Informer中，batch_y_mark是目标序列的附加标记信息
+    '''
     def _process_one_batch(self, dataset_object, batch_x, batch_y, batch_x_mark, batch_y_mark):
+        # 准备数据
         batch_x = batch_x.float().to(self.device)
         batch_y = batch_y.float()
 
@@ -264,14 +300,19 @@ class Exp_Informer(Exp_Basic):
         batch_y_mark = batch_y_mark.float().to(self.device)
 
         # decoder input
+        '''
+            如果 padding 参数为 0: 则创建 [batch_y.shape[0], self.args.pred_len, batch_y.shape[-1]]形状的全0张量
+            如果为1 则创建全 1 的张量（形状同上）
+        '''
         if self.args.padding==0:
             dec_inp = torch.zeros([batch_y.shape[0], self.args.pred_len, batch_y.shape[-1]]).float()
         elif self.args.padding==1:
             dec_inp = torch.ones([batch_y.shape[0], self.args.pred_len, batch_y.shape[-1]]).float()
+        # 将 batch_y 的前 self.args.label_len 个时间步切片拼接到 dec_inp 中
         dec_inp = torch.cat([batch_y[:,:self.args.label_len,:], dec_inp], dim=1).float().to(self.device)
         # encoder - decoder
-        if self.args.use_amp:
-            with torch.cuda.amp.autocast():
+        if self.args.use_amp: # 如果使用混合精度训练
+            with torch.cuda.amp.autocast(): 
                 if self.args.output_attention:
                     outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
                 else:
@@ -281,9 +322,13 @@ class Exp_Informer(Exp_Basic):
                 outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
             else:
                 outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+        # 如果设定了inverse逆变换的标记，对输出进行逆变换，将其转换回原始数据。
         if self.args.inverse:
             outputs = dataset_object.inverse_transform(outputs)
+        # 如果 features 参数等于 'MS'，则 f_dim 设为 -1，否则设为 0。
         f_dim = -1 if self.args.features=='MS' else 0
+        # 对目标数据 batch_y 进行切片，仅保留最后 self.args.pred_len 个时间步的数据。
         batch_y = batch_y[:,-self.args.pred_len:,f_dim:].to(self.device)
 
+        # 返回处理后的输出 outputs 和目标数据 batch_y
         return outputs, batch_y

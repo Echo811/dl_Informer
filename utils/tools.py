@@ -1,6 +1,9 @@
 import numpy as np
 import torch
 
+"""
+    动态学习率
+"""
 def adjust_learning_rate(optimizer, epoch, args):
     # lr = args.learning_rate * (0.2 ** (epoch // 2))
     if args.lradj=='type1':
@@ -16,6 +19,9 @@ def adjust_learning_rate(optimizer, epoch, args):
             param_group['lr'] = lr
         print('Updating learning rate to {}'.format(lr))
 
+"""
+    创建自定义早停类
+"""
 class EarlyStopping:
     def __init__(self, patience=7, verbose=False, delta=0):
         self.patience = patience
