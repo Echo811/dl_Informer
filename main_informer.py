@@ -96,6 +96,7 @@ data_parser = {
     'WTH':  {'data':'WTH.csv',      'T':'WetBulbCelsius',   'M':[12,12,12],     'S':[1,1,1],    'MS':[12,12,1]},
     'ECL':  {'data':'ECL.csv',      'T':'MT_320',           'M':[321,321,321],  'S':[1,1,1],    'MS':[321,321,1]},
     'Solar':{'data':'solar_AL.csv', 'T':'POWER_136',        'M':[137,137,137],  'S':[1,1,1],    'MS':[137,137,1]},
+    'NSE-TATA':{'data':'NSE-TATA.csv', 'T':'Close',         'M':[7,7,7],    'S':[1,1,1],    'MS':[7,7,1]},
 }
 if args.data in data_parser.keys():
     data_info = data_parser[args.data]
@@ -111,7 +112,6 @@ print('Args in experiment:')
 print(args)
 
 Exp = Exp_Informer
-
 # 打印 args 训练基本信息
 # params_info(args=args)
 # sys.exit()
@@ -125,6 +125,11 @@ for ii in range(args.itr):
                 args.embed, args.distil, args.mix, args.des, ii)
 
     exp = Exp(args) # set experiments
+    import pickle
+    exp_f = open('./my_tool/obj/exp.txt', 'wb')
+    pickle.dump(obj=exp, file=exp_f)
+    print('保存exp对象成功！')
+
     print('---------------------------start training---------------------------\n{}'.format(setting))
     exp.train(setting)
     

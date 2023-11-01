@@ -36,16 +36,18 @@ def read_result(path, shape_bool=True):
     preds = np.load(path + 'pred.npy')
     # 从 'true.npy' 文件中读取真实值数组
     trues = np.load(path + 'true.npy')
+    real_pre = np.load(path + 'real_prediction.npy')
     # 打印读取的数据
     if shape_bool:
         print("Metrics:", metrics.shape)
         print("Predictions:", preds.shape)
         print("True Values:", trues.shape)
+        print("real_prediction Values:", real_pre.shape)
     else:
-        print("Metrics\n", metrics)
-        print("Predictions\n", preds)
+        # print("Metrics\n", metrics)
+        # print("Predictions\n", preds)
         print("True Values\n", trues)
-        print(preds - trues)
+        print("real_prediction Values\n", real_pre)
 
 def show_data_basic_info(file_path):
     # 读取 CSV 文件
