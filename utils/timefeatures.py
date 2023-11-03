@@ -139,7 +139,7 @@ def time_features(dates, timeenc=1, freq='h'):
         dates['weekday'] = dates.date.apply(lambda row:row.weekday(),1)
         dates['hour'] = dates.date.apply(lambda row:row.hour,1)
         dates['minute'] = dates.date.apply(lambda row:row.minute,1)
-        dates['minute'] = dates.minute.map(lambda x:x//15)
+        dates['minute'] = dates.minute.map(lambda x:x//15) # 对于分钟信息，将分钟数除以15，以便将分钟划分为15分钟的间隔。
         freq_map = {
             'y':[],'m':['month'],'w':['month'],'d':['month','day','weekday'],
             'b':['month','day','weekday'],'h':['month','day','weekday','hour'],

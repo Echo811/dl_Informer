@@ -47,13 +47,18 @@ class Dataset_ETT_hour(Dataset):
         df_raw = pd.read_csv(os.path.join(self.root_path,
                                           self.data_path))
 
-        border1s = [0, 12*30*24 - self.seq_len, 12*30*24+4*30*24 - self.seq_len]
-        border2s = [12*30*24, 12*30*24+4*30*24, 12*30*24+8*30*24]
-        border1 = border1s[self.set_type]
+        '''
+            train border(index) : 0 ~ 12*30*24
+            val   border(index) : 12*30*24 - self.seq_len ~ 12*30*24+4*30*24
+            test  border(index) : 12*30*24+4*30*24 - self.seq_len ~ 12*30*24+8*30*24
+        '''
+        border1s = [0,                  12*30*24 - self.seq_len,           12*30*24+4*30*24 - self.seq_len]
+        border2s = [12*30*24,           12*30*24+4*30*24,                  12*30*24+8*30*24]
+        border1 = border1s[self.set_type] # type_map = {'train':0, 'val':1, 'test':2} ; self.set_type = type_map[flag]
         border2 = border2s[self.set_type]
         
         if self.features=='M' or self.features=='MS':
-            cols_data = df_raw.columns[1:]
+            cols_data = df_raw.columns[1:] # 将时间列去除
             df_data = df_raw[cols_data]
         elif self.features=='S':
             df_data = df_raw[[self.target]]
@@ -67,6 +72,10 @@ class Dataset_ETT_hour(Dataset):
             
         df_stamp = df_raw[['date']][border1:border2]
         df_stamp['date'] = pd.to_datetime(df_stamp.date)
+        '''
+            通过time_features将df_stamp对象从1个时间维度（N，1）扩展到四个时间维度（N，4）
+            因此data_stamp的维度变化：（N，1）---> （N，4）
+        '''
         data_stamp = time_features(df_stamp, timeenc=self.timeenc, freq=self.freq)
 
         self.data_x = data[border1:border2]
@@ -75,6 +84,24 @@ class Dataset_ETT_hour(Dataset):
         else:
             self.data_y = data[border1:border2]
         self.data_stamp = data_stamp
+        '''
+            此时：
+            
+            train_data:
+            df_stamp = (12*30*24-0,                                                 4)
+            data_x   = (12*30*24-0,                                                 7)
+            data_y   = (12*30*24-0,                                                 7)
+            
+            val_data:
+            df_stamp = (12*30*24+4*30*24 - 12*30*24 - self.seq_len,                 4)
+            data_x   = (12*30*24+4*30*24 - 12*30*24 - self.seq_len,                 7)
+            data_y   = (12*30*24+4*30*24 - 12*30*24 - self.seq_len,                 7)
+            
+            test_data
+            df_stamp = (12*30*24+8*30*24 - 12*30*24+4*30*24 - self.seq_len,         4)
+            data_x   = (12*30*24+8*30*24 - 12*30*24+4*30*24 - self.seq_len,         7)
+            data_y   = (12*30*24+8*30*24 - 12*30*24+4*30*24 - self.seq_len,         7)
+        '''
     
     def __getitem__(self, index):
         s_begin = index
@@ -208,8 +235,8 @@ class Dataset_Custom(Dataset):
         self.target = target
         self.scale = scale
         self.inverse = inverse
-        self.timeenc = timeenc
-        self.freq = freq
+        self.timeenc = timeenc # 对时间信息进行编码，以便模型能够更好地理解时间相关的模式。
+        self.freq = freq # 时间序列数据的采样频率
         self.cols=cols
         self.root_path = root_path
         self.data_path = data_path
@@ -228,29 +255,35 @@ class Dataset_Custom(Dataset):
             cols.remove(self.target)
         else:
             cols = list(df_raw.columns); cols.remove(self.target); cols.remove('date')
+        # 建立 特征列 和 目标列
         df_raw = df_raw[['date']+cols+[self.target]]
 
+        # 训练集、验证集和测试集的划分比例计算各个数据集的样本数量
         num_train = int(len(df_raw)*0.7)
         num_test = int(len(df_raw)*0.2)
         num_vali = len(df_raw) - num_train - num_test
+        # 根据不同的数据集类型设置边界
         border1s = [0, num_train-self.seq_len, len(df_raw)-num_test-self.seq_len]
         border2s = [num_train, num_train+num_vali, len(df_raw)]
         border1 = border1s[self.set_type]
         border2 = border2s[self.set_type]
-        
+
+        # M、MS：多变量预测多变量、多变量预测单变量
         if self.features=='M' or self.features=='MS':
             cols_data = df_raw.columns[1:]
             df_data = df_raw[cols_data]
         elif self.features=='S':
             df_data = df_raw[[self.target]]
 
+        # 如果需要 数据标准化
         if self.scale:
             train_data = df_data[border1s[0]:border2s[0]]
             self.scaler.fit(train_data.values)
             data = self.scaler.transform(df_data.values)
         else:
             data = df_data.values
-            
+
+        # 从原始数据中提取日期信息，并根据时间编码和频率生成时间特征
         df_stamp = df_raw[['date']][border1:border2]
         df_stamp['date'] = pd.to_datetime(df_stamp.date)
         data_stamp = time_features(df_stamp, timeenc=self.timeenc, freq=self.freq)
@@ -261,7 +294,7 @@ class Dataset_Custom(Dataset):
         else:
             self.data_y = data[border1:border2]
         self.data_stamp = data_stamp
-    
+
     def __getitem__(self, index):
         s_begin = index
         s_end = s_begin + self.seq_len

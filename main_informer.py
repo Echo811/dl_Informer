@@ -4,6 +4,7 @@ import torch
 import sys
 
 from my_tool.test import params_info
+from my_tool.save_obj import save_
 
 from exp.exp_informer import Exp_Informer
 
@@ -13,7 +14,7 @@ parser.add_argument('--model', type=str, required=True, default='informer',help=
 # 数据路径
 parser.add_argument('--data', type=str, required=True, default='ETTh1', help='data')
 parser.add_argument('--root_path', type=str, default='./data/ETT/', help='root path of the data file')
-parser.add_argument('--data_path', type=str, default='ETTh1.csv', help='data file')   
+parser.add_argument('--data_path', type=str, default='ETTh1.csv', help='data file')
 # M：多变量预测多变量、S：单变量预测单变量，MS：多变量预测单变量 
 parser.add_argument('--features', type=str, default='M', help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate')
 # 目标变量：OT油温
@@ -119,20 +120,27 @@ Exp = Exp_Informer
 for ii in range(args.itr):
     # 试验次数
     # setting record of experiments
-    setting = '{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_at{}_fc{}_eb{}_dt{}_mx{}_{}_{}'.format(args.model, args.data, args.features, 
+    setting = '{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_at{}_fc{}_eb{}_dt{}_mx{}_{}_{}'.format(args.model, args.data, args.features,
                 args.seq_len, args.label_len, args.pred_len,
-                args.d_model, args.n_heads, args.e_layers, args.d_layers, args.d_ff, args.attn, args.factor, 
+                args.d_model, args.n_heads, args.e_layers, args.d_layers, args.d_ff, args.attn, args.factor,
                 args.embed, args.distil, args.mix, args.des, ii)
 
     exp = Exp(args) # set experiments
-    import pickle
-    exp_f = open('./my_tool/obj/exp.txt', 'wb')
-    pickle.dump(obj=exp, file=exp_f)
-    print('保存exp对象成功！')
+
+    # import pickle
+    # exp_f = open('./my_tool/obj01/exp.txt', 'wb')
+    # pickle.dump(obj01=exp, file=exp_f)
+    # print('-----------保存exp对象成功！------------')
+    # 要保存的对象字典
+    save_dic = {'run_setting':setting,
+                'exp':exp,
+                'args':args}
+    save_(obj_dic=save_dic) # 序列化对象
+
 
     print('---------------------------start training---------------------------\n{}'.format(setting))
     exp.train(setting)
-    
+
     print('---------------------------start testing----------------------------\n{}'.format(setting))
     exp.test(setting)
 

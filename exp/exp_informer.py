@@ -1,6 +1,7 @@
 from data.data_loader import Dataset_ETT_hour, Dataset_ETT_minute, Dataset_Custom, Dataset_Pred
 from exp.exp_basic import Exp_Basic
 from models.model import Informer, InformerStack
+from my_tool.save_obj import save_
 
 from utils.tools import EarlyStopping, adjust_learning_rate
 from utils.metrics import metric
@@ -92,7 +93,7 @@ class Exp_Informer(Exp_Basic):
             batch_size = 1;
             freq = args.detail_freq
             Data = Dataset_Pred
-        else:  # 训练
+        else:  # 'train'
             shuffle_flag = True;
             drop_last = True;
             batch_size = args.batch_size;
@@ -162,9 +163,9 @@ class Exp_Informer(Exp_Basic):
         test_data, test_loader = self._get_data(flag='test')
         # ---------------------------------------------------------------------
 
-        # print(train_data.__len__())
-        # print(vali_data.__len__())
-        # print(test_data.__len__())
+        # 2023年11月2日 加
+        temp_dic = {'train_data': train_data, 'train_loader':train_loader}
+        save_(temp_dic)
 
         # ---------------------------------------------------------------------
 
@@ -247,6 +248,10 @@ class Exp_Informer(Exp_Basic):
     def test(self, setting):
         test_data, test_loader = self._get_data(flag='test')
 
+        # 2023年11月2日 加
+        temp_dic = {'testdata': test_data, 'testloader':test_loader}
+        save_(temp_dic)
+
         self.model.eval()
 
         preds = []
@@ -286,6 +291,10 @@ class Exp_Informer(Exp_Basic):
 
     def predict(self, setting, load=False):
         pred_data, pred_loader = self._get_data(flag='pred')
+
+        # 2023年11月2日 加
+        temp_dic = {'predata':pred_data, 'preloader':pred_loader}
+        save_(temp_dic)
 
         # 加载模型的预训练权重
         if load:
