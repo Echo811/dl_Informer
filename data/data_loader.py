@@ -111,7 +111,7 @@ class Dataset_ETT_hour(Dataset):
 
         seq_x = self.data_x[s_begin:s_end]
         if self.inverse:
-            seq_y = np.concatenate([self.data_x[r_begin:r_begin+self.label_len], self.data_y[r_begin+self.label_len:r_end]], 0)
+            seq_y = np.concatenate([self.data_x[r_begin  :  r_begin+self.label_len], self.data_y[r_begin+self.label_len  :  r_end]], 0)
         else:
             seq_y = self.data_y[r_begin:r_end]
         seq_x_mark = self.data_stamp[s_begin:s_end]
