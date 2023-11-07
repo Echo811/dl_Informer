@@ -3,7 +3,7 @@ import pickle
 import sys, os
 sys.path.append('..')
 
-def save_(obj_dic, path='my_tool/obj/'):
+def save_(obj_dic, path='my_tool/obj01/'):
     print(os.getcwd())
     for obj_name in obj_dic:
         obj = obj_dic[obj_name]
