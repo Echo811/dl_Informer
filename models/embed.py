@@ -4,6 +4,7 @@ import torch.nn.functional as F
 
 import math
 
+# 2. 保证时间序列有序性的      position_embedding，
 class PositionalEmbedding(nn.Module):
     def __init__(self, d_model, max_len=5000):
         super(PositionalEmbedding, self).__init__()
@@ -23,6 +24,7 @@ class PositionalEmbedding(nn.Module):
     def forward(self, x):
         return self.pe[:, :x.size(1)]
 
+# 1. 输入特征序列的          Token Embedding
 class TokenEmbedding(nn.Module):
     def __init__(self, c_in, d_model):
         super(TokenEmbedding, self).__init__()
@@ -37,6 +39,9 @@ class TokenEmbedding(nn.Module):
         x = self.tokenConv(x.permute(0, 2, 1)).transpose(1,2)
         return x
 
+'''
+    FixedEmbedding用于TemporalEmbedding中
+'''
 class FixedEmbedding(nn.Module):
     def __init__(self, c_in, d_model):
         super(FixedEmbedding, self).__init__()
@@ -56,6 +61,7 @@ class FixedEmbedding(nn.Module):
     def forward(self, x):
         return self.emb(x).detach()
 
+#  3. 以及每个时间点的         temporal_embedding    (比如今天是7月30号，这个日期包含信息一个月的第几天，周几，是否月末...
 class TemporalEmbedding(nn.Module):
     def __init__(self, d_model, embed_type='fixed', freq='h'):
         super(TemporalEmbedding, self).__init__()
@@ -94,6 +100,15 @@ class TimeFeatureEmbedding(nn.Module):
         return self.embed(x)
 
 class DataEmbedding(nn.Module):
+    '''
+        MAIN_Embedding:
+            可以发现Encoder和Decoder的输入都会经过一个embedding，这个embedding包含三个部分，
+            1. 输入特征序列的          Token Embedding
+            2. 保证时间序列有序性的      position_embedding，
+            3. 以及每个时间点的         temporal_embedding    (比如今天是7月30号，这个日期包含信息一个月的第几天，周几，是否月末...
+            作者将这些信息进行了编码，后续的时序预测基本都用了类似的编码)
+
+    '''
     def __init__(self, c_in, d_model, embed_type='fixed', freq='h', dropout=0.1):
         super(DataEmbedding, self).__init__()
 

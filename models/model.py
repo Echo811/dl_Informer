@@ -23,6 +23,10 @@ class Informer(nn.Module):
         self.enc_embedding = DataEmbedding(enc_in, d_model, embed, freq, dropout)
         self.dec_embedding = DataEmbedding(dec_in, d_model, embed, freq, dropout)
         # Attention
+        '''
+            attn=='prob':Informer中的概率注意力机制
+            attn=='ELSE':Transformer中的传统注意力机制
+        '''
         Attn = ProbAttention if attn=='prob' else FullAttention
         # Encoder
         self.encoder = Encoder(
@@ -47,8 +51,14 @@ class Informer(nn.Module):
         self.decoder = Decoder(
             [
                 DecoderLayer(
+                    #   [layer 01]
+                    #
+                    #   Masked Multi-head ProbSparse Self-Attention
                     AttentionLayer(Attn(True, factor, attention_dropout=dropout, output_attention=False), 
                                 d_model, n_heads, mix=mix),
+                    #   [layer 02]
+                    #
+                    #   Muti-head Self-Attention
                     AttentionLayer(FullAttention(False, factor, attention_dropout=dropout, output_attention=False), 
                                 d_model, n_heads, mix=False),
                     d_model,
@@ -101,7 +111,14 @@ class InformerStack(nn.Module):
 
         inp_lens = list(range(len(e_layers))) # [0,1,2,...] you can customize here
         encoders = [
+            #                 【开始建立 e_layers 个编码器层】
+            #
+            #                 def __init__(self, attn_layers, conv_layers=None, norm_layer=None):
+            #                 三个参数分别是：  1. 注意力层、    2. 卷积层（特征蒸馏层）、    3. 标准化层
             Encoder(
+                # 1. 注意力层、
+                # 传入的是层组成的列表 for l in range(encoder_layer)
+                #
                 [
                     EncoderLayer(
                         AttentionLayer(Attn(False, factor, attention_dropout=dropout, output_attention=output_attention), 
@@ -112,20 +129,36 @@ class InformerStack(nn.Module):
                         activation=activation
                     ) for l in range(el)
                 ],
+                # 2. 卷积层（特征蒸馏层）
+                #  if distil else None,  如果参数distil为false，则不使用特征蒸馏（就会算的更慢一些）
+                #
+                # 【注意】：以后分析数据量较小时，可以不使用蒸馏特征，因为我们输入的seq_len不大，本身就是概率稀疏注意力，
+                #         再不断的下采样，最后用到的query也没几个了
                 [
                     ConvLayer(
                         d_model
                     ) for l in range(el-1)
                 ] if distil else None,
+
+                # 3. 标准化层
                 norm_layer=torch.nn.LayerNorm(d_model)
+
             ) for el in e_layers]
         self.encoder = EncoderStack(encoders, inp_lens)
         # Decoder
+        #                 【开始建立 d_layers 个编码器层】
         self.decoder = Decoder(
+            # Decoder 类的参数：def __init__(self, layers, norm_layer=None):
             [
                 DecoderLayer(
+                    #   [layer 01]
+                    #
+                    #   Masked Multi-head ProbSparse Self-Attention
                     AttentionLayer(Attn(True, factor, attention_dropout=dropout, output_attention=False), 
                                 d_model, n_heads, mix=mix),
+                    #   [layer 02]
+                    #
+                    #   Muti-head Self-Attention
                     AttentionLayer(FullAttention(False, factor, attention_dropout=dropout, output_attention=False), 
                                 d_model, n_heads, mix=False),
                     d_model,
@@ -143,11 +176,21 @@ class InformerStack(nn.Module):
         
     def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, 
                 enc_self_mask=None, dec_self_mask=None, dec_enc_mask=None):
-        enc_out = self.enc_embedding(x_enc, x_mark_enc)
-        enc_out, attns = self.encoder(enc_out, attn_mask=enc_self_mask)
+        '''
+            x_enc = [bz, seq_len, features]
+            x_mark_enc = time_features
 
-        dec_out = self.dec_embedding(x_dec, x_mark_dec)
-        dec_out = self.decoder(dec_out, enc_out, x_mask=dec_self_mask, cross_mask=dec_enc_mask)
+            x_dec = [bz, label_len*pred_len, features]
+            x_mark_dec = [bz, label_len*pred_len, time_features]
+
+        '''
+
+        enc_out = self.enc_embedding(x_enc, x_mark_enc)  # [bz, seq_len, d_model]
+        enc_out, attns = self.encoder(enc_out, attn_mask=enc_self_mask)  # [bz, new_seq_len, d_model]
+
+        dec_out = self.dec_embedding(x_dec, x_mark_dec)  # [bz, label_len+pre_len, d_model]
+        dec_out = self.decoder(dec_out, enc_out, x_mask=dec_self_mask, cross_mask=dec_enc_mask)  # [bz, pre_len, features]
+        # Fully Connected Layer
         dec_out = self.projection(dec_out)
         
         # dec_out = self.end_conv1(dec_out)

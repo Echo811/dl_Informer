@@ -45,6 +45,9 @@ class ProbAttention(nn.Module):
         self.dropout = nn.Dropout(attention_dropout)
 
     def _prob_QK(self, Q, K, sample_k, n_top): # n_top: c*ln(L_q)
+        '''
+        计算 前u个M（qi,k）
+        '''
         # Q [B, H, L, D]
         B, H, L_K, E = K.shape
         _, _, L_Q, _ = Q.shape
@@ -104,6 +107,10 @@ class ProbAttention(nn.Module):
         queries = queries.transpose(2,1)
         keys = keys.transpose(2,1)
         values = values.transpose(2,1)
+
+        '''
+        U_part和u分别对应:采样key和采样query的个数
+        '''
 
         U_part = self.factor * np.ceil(np.log(L_K)).astype('int').item() # c*ln(L_k)
         u = self.factor * np.ceil(np.log(L_Q)).astype('int').item() # c*ln(L_q) 
