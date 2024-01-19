@@ -77,22 +77,23 @@ class Exp_Informer(Exp_Basic):
             'ECL': Dataset_Custom,
             'Solar': Dataset_Custom,
             'custom': Dataset_Custom,
-            'NSE-TATA': Dataset_Custom
+            'NSE-TATA': Dataset_Custom,
+            'Seismic-ACC': Dataset_Custom,
         }
         Data = data_dict[self.args.data]
         timeenc = 0 if args.embed != 'timeF' else 1
 
         if flag == 'test':
             shuffle_flag = False;
-            drop_last = True;
+            drop_last = True;  # # 2024年1月17日 改动 之前为True
             batch_size = args.batch_size;
             freq = args.freq
-        elif flag == 'pred':
+        elif flag == 'pre':
             shuffle_flag = False;
             drop_last = False;
-            batch_size = 1;
+            batch_size = 1; # 2024年1月17日 改动 之前为1
             freq = args.detail_freq
-            Data = Dataset_Pred
+            # Data = Dataset_Pred
         else:  # 'train'
             shuffle_flag = True;
             drop_last = True;
@@ -161,6 +162,17 @@ class Exp_Informer(Exp_Basic):
         train_data, train_loader = self._get_data(flag='train')
         vali_data, vali_loader = self._get_data(flag='val')
         test_data, test_loader = self._get_data(flag='test')
+        print('>>>>>>>>>>>>>>>>>>')
+        print(train_data.__len__(), vali_data.__len__(), test_data.__len__())
+        print(vali_data.data_x) # [5638,6553]
+        print(train_data.data_x) # [0,5733]
+        print(test_data.data_x) # [6458,8191]
+        # for i in vali_data:
+        #     seq_x, seq_y, seq_x_mark, seq_y_mark = vali_data.__getitem__(100000)
+        #     print(seq_x)
+        # for i in range(913):
+        #     seq_x, seq_y, seq_x_mark, seq_y_mark = vali_data.__getitem__(i)
+        #     print(seq_x)
         # ---------------------------------------------------------------------
 
         # 2023年11月2日 加
@@ -249,8 +261,8 @@ class Exp_Informer(Exp_Basic):
         test_data, test_loader = self._get_data(flag='test')
 
         # 2023年11月2日 加
-        temp_dic = {'testdata': test_data, 'testloader':test_loader}
-        save_(temp_dic)
+        # temp_dic = {'testdata': test_data, 'testloader':test_loader}
+        # save_(temp_dic)
 
         self.model.eval()
 
@@ -290,7 +302,11 @@ class Exp_Informer(Exp_Basic):
     '''
 
     def predict(self, setting, load=False):
-        pred_data, pred_loader = self._get_data(flag='pred')
+        pred_data, pred_loader = self._get_data(flag='pre')
+        print("----------------------------------------------------------")
+        print(pred_data.__getitem__)
+        print("----------------------------------------------------------")
+
 
         # 2023年11月2日 加
         temp_dic = {'predata':pred_data, 'preloader':pred_loader}

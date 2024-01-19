@@ -1,0 +1,1 @@
+python -u main_informer.py --model informer --root_path ./data/se/ --data_path Seismic-ACC.csv --data Seismic-ACC --features S --seq_len 96 --label_len 64 --pred_len 8 --e_layers 2 --d_layers 1 --attn prob --des 'Exp' --itr 1

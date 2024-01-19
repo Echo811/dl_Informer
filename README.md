@@ -17,3 +17,15 @@
   * encoder.py
   * decoder.py
   * attn.py
+
+## 2024年1月19日
+
+针对于**“地震响应预测”**项目：
+
+l 首先在网上找到一组地面加速度变化的时序数据
+
+l 对数据进行归一化处理
+
+l 将数据分别放入LSTM与Informer模型中，对比单变量时序预测的拟合效果（如下文**五、实验结果** 所示）
+
+![image-20240119093720919](U:\CODE\Informer2020\lstm-informer compare.png)
